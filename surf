@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+import urllib3;
+import certifi;
+import time;
+from bs4 import BeautifulSoup
+
+def get_surf_data(var):
+    
+    http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED', ca_certs='/home/f/surf/cert/certs.pem')
+    try:
+        html_page = http.request('GET', 'https://www.coastalwatch.com/surf-cams-surf-reports/nsw/manly---nth-steyne');
+    except:
+        if var == 20:
+            return;
+        else:
+            time.sleep(1);
+            get_surf_data(var + 1);
+            return;
+    soup = BeautifulSoup(html_page.data, 'html.parser');
+
+    values =soup.findAll("strong", {"class": "val"})
+    #print(values);
+    surf_height = values[0].get_text();
+    
+    
+    stars_array = ["starLarge sprite-1starLarge","starLarge sprite-2starLarge","starLarge sprite-3starLarge","starLarge sprite-4starLarge","starLarge sprite-5starLarge"]
+    stars = 7;
+
+    for i in range(0,len(stars_array)):
+        temp = soup.findAll("div",{"class":stars_array [i]});
+        if(len(str(temp)) >2):
+            stars = i + 1; #arrays start at 0, so increment to align with the star system.
+
+    rating = 0;
+
+    http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED', ca_certs='/home/f/surf/cert/certs.pem')
+    html_page = http.request('GET', 'https://www.swellnet.com/reports/australia/new-south-wales/northern-beaches');
+    soup = BeautifulSoup(html_page.data, 'html.parser');
+    values = soup.find("span",{"clas" :"views-field views-field-field-surf-report-wind"})
+    #wind = values.findChildren()[1].get_text();
+    #print(f'Wind Direction: {wind}')
+    values =soup.find("span", {"class": "views-field views-field-field-surf-report-rating"})
+    if(values != None):
+        
+        values = soup.find("span", {"class": "views-field views-field-field-surf-report-rating"})
+        swellnet_rating = values.findChildren()[1].get_text();
+        swellnet_rating = str(swellnet_rating);
+        swellnet_rating = swellnet_rating.split('/');
+        swellnet_rating = int(swellnet_rating[0]); #rating is expressed as x/10, i'm trying to get the x val
+        if(stars == 7): #coastalwatch stars are invalid
+            rating = swellnet_rating;
+        else:
+            rating = (stars * 2 + swellnet_rating) / 2;  #averaging the coastalwatch and swellnet
+        if(int(rating) == rating):
+            rating = int(rating)
+    else:
+        rating = stars * 2;
+    if(rating >= 0):
+        print(f'{surf_height}, {rating}/10')
+    return surf_height, rating;
+
+def turn_string_to_int(height):
+    string1 = '';
+    string2 = '';
+    flag = 0;
+    for i in height: 
+        
+        if(str(i).isdigit()):
+            if(flag == 0):
+                string1 = string1 + i;
+            else:
+                string2 = string2 + i;
+        if(i == '-'):
+            flag = 1;
+    if flag == 0:
+        return int(string1);
+    else:
+        return int(string2);
+
+get_surf_data(0);
+#height = turn_string_to_int(surf_height);
+#Now height contains the surf height as an int (in feet), and rating contains 
+#the average rating of the two websites (out of 10).
+
+#if(height >= 3 and rating >= 6):
+#    print("Surf's up");  
